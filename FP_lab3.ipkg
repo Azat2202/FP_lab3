@@ -17,13 +17,13 @@ version = 0.1.0
 
 -- modules to install
 modules = FP_lab3
-        , Main
+        , InfIO
 
 -- main file (i.e. file to load at REPL)
--- main =
+main = FP_lab3
 
 -- name of executable
--- executable =
+executable = FP_lab3
 -- opts =
 sourcedir = "src"
 -- builddir =
