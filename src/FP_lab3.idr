@@ -10,29 +10,34 @@ record Point where
   x : Double 
   y : Double
 
+zPoint : Point
+zPoint = MkPoint 0.0 0.0 
+
 Show Point where 
   show (MkPoint x y) = "(" ++ (show x) ++ ";" ++ (show y) ++ ")\n"
 
-getDouble : IO Double
+getDouble : RunIO Double
 getDouble = InfIO.do line <- getLine 
                      let num = parseDouble line 
                      let parsedNum = case num of 
                                     Nothing => (putStrLn "Ввод не распознан введите еще раз!") >>= (\v => getDouble)
-                                    (Just x) => pure x
+                                    (Just x) => Quit x
                      parsedNum
 
 getPoint : IO Point
 getPoint = 
   do putStrLn "Введите точку"
-     putStr "X: "
-     x <- getDouble 
-     putStr "Y: "
-     y <- getDouble
-     pure $ MkPoint x y 
-
-mainInf : InfIO 
+     _ <- putStr "X: "
+     x <- do run (More Dry) getDouble 
+     _ <- putStr "Y: "
+     y <- do run (More Dry) getDouble
+     case x of
+          Nothing => pure zPoint -- impossible case actually
+          (Just justX) => case y of
+                           Nothing => pure zPoint -- impossible case
+                           (Just justW) => pure $ MkPoint justX justW
 
 main : IO()
-main = ?dfk
-
-
+main = do point <- getPoint
+          putStrLn ("You wrote "++ (show point))
+          pure ()
