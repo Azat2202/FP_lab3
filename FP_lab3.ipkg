@@ -17,7 +17,6 @@ version = 0.1.0
 
 -- modules to install
 modules = FP_lab3
-        , InfIO
 
 -- main file (i.e. file to load at REPL)
 main = FP_lab3
