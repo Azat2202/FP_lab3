@@ -100,6 +100,31 @@ interpolationGo (More fuel) (p0 :: p1 :: p2 ::  Nil) isLinear isLagrange discret
                    else pure ()
      interpolationGo fuel [p1, p2, p3] isLinear isLagrange discretisation
 
+record InterpolationState where
+  constructor MkState
+  interpolators : List (Vect l Point -> IO ())
+
+data InterpolationCmd : Type -> Nat -> Nat -> Type where 
+  TwoPoints :   (p1 : Point) -> (p2: Point) -> InterpolationCmd   InterpolationState  0 2
+  ThreePoints : (p3 : Point) ->                InterpolationCmd   InterpolationState  2 3
+  FourPoints :  (p4 : Point) ->                InterpolationCmd   InterpolationState  3 4
+  InfPoints :   (p5 : Point) ->                InterpolationCmd   InterpolationState  4 4
+
+  Pure : ty -> InterpolationCmd ty nat nat
+  (>>=) : InterpolationCmd s1 a1 a2 -> (s1 -> InterpolationCmd s2 a2 a3) -> InterpolationCmd s2 a1 a3
+
+
+interpolationLoop : Fuel -> {s1: Nat} -> InterpolationCmd () s1 s2
+interpolationLoop Dry = ?slkfj
+interpolationLoop (More fuel) {s1 = 0} = do let p1 = zPoint
+                                            (MkState interpolators) <- TwoPoints p1 p1
+                                            _ <- ThreePoints p1
+                                            ?dkfj
+interpolationLoop (More fuel) {s1 = 1} = ?asdklfh
+interpolationLoop (More fuel) {s1 = 2} = ?interpolationLoop_rhs_4
+interpolationLoop (More fuel) {s1 = _} = ?interpolationLoop_rhs_5
+
+
 partial
 main : IO()
 main = do putStrLn ""
