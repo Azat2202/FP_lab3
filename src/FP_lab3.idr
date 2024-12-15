@@ -66,82 +66,76 @@ doubleRange start end discretisation = case start < end of
                                             False => [start]
                                             True => assert_total $ start :: (doubleRange (start + discretisation) end discretisation)
 
-lagrange : Vect 4 Point -> (discretisation : Double) -> IO ()
-lagrange xs@(p0@(MkPoint x0 y0) :: p1 :: p2 :: p3@(MkPoint x3 y3) :: Nil) discretisation = 
-  do _ <- putStrLn "\nИнтерполяция Лагранжа"
-     let range = doubleRange x0 x3 discretisation
-     let points = map (\x => lagrange_L x xs) range
-     putStrLn $ foldl1 (++) $ [""] ++ map ((++ "\n") . show) points
+lagrange : (discretisation : Double) -> Vect 4 Point -> List Point
+lagrange discretisation xs@(p0@(MkPoint x0 y0) :: p1 :: p2 :: p3@(MkPoint x3 y3) :: Nil) = 
+  do let range = doubleRange x0 x3 discretisation
+     map (\x => lagrange_L x xs) range
 
 linearFunc : Vect 2 Point -> Double -> Point
 linearFunc xs@((MkPoint x0 y0) :: ((MkPoint x1 y1) :: [])) x = 
   MkPoint x $ y0 + (x - x0) * (y1 - y0) / (x1 - x0)
 
-linear : Vect 2 Point -> (discretisation : Double) -> IO ()
-linear xs@((MkPoint x0 y0) :: ((MkPoint x1 y1) :: [])) discretisation = 
-  do _ <- putStrLn "\nЛинейная интерполяция"
-     let range = doubleRange x0 x1 discretisation
-     let points = map (linearFunc xs) range 
-     putStrLn $ foldl1 (++) $ [""] ++ map ((++ "\n") . show) points
+linear : (discretisation : Double) -> Vect 2 Point -> List Point
+linear discretisation xs@((MkPoint x0 y0) :: ((MkPoint x1 y1) :: [])) = 
+  do let range = doubleRange x0 x1 discretisation
+     map (linearFunc xs) range 
 
-interpolationGo : Fuel -> 
-                  Vect 3 Point -> 
-                  (isLinear : Bool) -> 
-                  (isLagrange : Bool) ->
-                  (discretisation : Double) ->
-                  IO ()
-interpolationGo Dry _ _ _ _ = pure ()
-interpolationGo (More fuel) (p0 :: p1 :: p2 ::  Nil) isLinear isLagrange discretisation = 
-  do putStrLn "Введите следующую точку"
-     p3 <- getPoint
-     if isLinear then (do linear [p2, p3] discretisation)
-                 else pure ()
-     if isLagrange then (do lagrange [p0, p1, p2, p3] discretisation)
-                   else pure ()
-     interpolationGo fuel [p1, p2, p3] isLinear isLagrange discretisation
+record Interpolator where 
+  constructor MkInterpolator
+  name : String
+  window : Nat
+  discretisation : Double
+  func : (Vect window Point -> List Point)
+
 
 record InterpolationState where
   constructor MkState
-  interpolators : List (Vect l Point -> IO ())
+  points : List Point
+  interpolators : List Interpolator
 
-data InterpolationCmd : Type -> Nat -> Nat -> Type where 
-  TwoPoints :   (p1 : Point) -> (p2: Point) -> InterpolationCmd   InterpolationState  0 2
-  ThreePoints : (p3 : Point) ->                InterpolationCmd   InterpolationState  2 3
-  FourPoints :  (p4 : Point) ->                InterpolationCmd   InterpolationState  3 4
-  InfPoints :   (p5 : Point) ->                InterpolationCmd   InterpolationState  4 4
+tryToTake : (l: Nat) -> List Point -> Maybe (Vect l Point)
+tryToTake 0 xs = Just []
+tryToTake (S k) [] = Nothing
+tryToTake (S k) (x :: xs) = case tryToTake k xs of
+                                 Nothing => Nothing
+                                 (Just ys) => Just $ x :: ys
 
-  Pure : ty -> InterpolationCmd ty nat nat
-  (>>=) : InterpolationCmd s1 a1 a2 -> (s1 -> InterpolationCmd s2 a2 a3) -> InterpolationCmd s2 a1 a3
+interpolatorTryAndGo : (points : List Point) -> Interpolator -> List Point
+interpolatorTryAndGo points (MkInterpolator name window discretisation func) = 
+  case tryToTake window points of
+       Nothing => []
+       (Just pointsWindow) => func $ reverse pointsWindow
 
+printResults : List Interpolator -> List (List Point) -> IO ()
+printResults [] _ = pure ()
+printResults _ [] = pure ()
+printResults ((MkInterpolator name window discretisation func) :: xs) (points :: ys) = if (length points == Z) then pure () else 
+  do putStrLn name
+     putStrLn $ foldl1 (++) $ [""] ++ map ((++ "\n") . show) points 
+     printResults xs ys
 
-interpolationLoop : Fuel -> {s1: Nat} -> InterpolationCmd () s1 s2
-interpolationLoop Dry = ?slkfj
-interpolationLoop (More fuel) {s1 = 0} = do let p1 = zPoint
-                                            (MkState interpolators) <- TwoPoints p1 p1
-                                            _ <- ThreePoints p1
-                                            ?dkfj
-interpolationLoop (More fuel) {s1 = 1} = ?asdklfh
-interpolationLoop (More fuel) {s1 = 2} = ?interpolationLoop_rhs_4
-interpolationLoop (More fuel) {s1 = _} = ?interpolationLoop_rhs_5
+interpolationGo : Fuel -> InterpolationState -> Nat -> IO ()
+interpolationGo Dry x y = pure ()
+interpolationGo (More fuel) (MkState points interpolators) maxWindowSize = 
+  do let pointsLen = length points 
+     let interpolationResults = map (interpolatorTryAndGo points) interpolators
+     printResults interpolators interpolationResults
+     newPoint <- getPoint
+     let newPointList = if ((length points) >= maxWindowSize) then (init (newPoint :: points)) else (newPoint :: points)
+     interpolationGo fuel (MkState newPointList interpolators) maxWindowSize
 
 
 partial
 main : IO()
 main = do putStrLn ""
           args <- getArgs
-          let isLinear = has "linear" args
-          let isLagrange = has "lagrange" args
-          let discretisation = parseDiscretisation args
-
-          putStrLn "Введите первые две точки"
-          point1 <- getPoint
-          point2 <- getPoint 
-          if isLinear then (do linear [point1, point2] discretisation)
-                      else pure ()
-
-          putStrLn "Введите следующую точку"
-          point3 <- getPoint
-          if isLinear then (do linear [point2, point3] discretisation)
-                      else pure ()
-
-          interpolationGo forever [point1, point2, point3] isLinear isLagrange discretisation
+          let discretisation = parseDiscretisation args 
+          let linearInterpolator = if (not $ has "linear" args) then Prelude.Nil else [
+            MkInterpolator "Линейная интерполяция" 2 discretisation (linear discretisation)
+          ]
+          let lagrangeInterpolator = if (not $ has "lagrange" args) then Prelude.Nil else [
+            MkInterpolator "Интерполяция Лагранжа" 4 discretisation (lagrange discretisation)
+          ]
+          let interpolationState = MkState [] (linearInterpolator ++ lagrangeInterpolator)
+          let maxWindowSize = 4
+          interpolationGo forever interpolationState maxWindowSize
